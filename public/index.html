@@ -25,7 +25,7 @@
         const infoWindow = document.getElementById("infoWindow");
         let infoText = "";
         let loadedFiles = [];
-
+        // get all files from /data
         async function getFiles() {
             const result = await fetch("/file");
             const data = await result.json();
@@ -38,8 +38,18 @@
             console.log(loadedFiles.length);
             let UserContent = prompt("enter some content");
             let newFileName = prompt("enter a Filename");
+            if (newFileName === "") {
+                alert("please enter a filename");
+                newFileName = prompt("enter a Filename");
+                if (newFileName === "") {
+                    newFileName = `new file${(loadedFiles.length + 1)}`
+                }
+            }
+
+            // check for existing file names
             for (i = 0; i < loadedFiles.length; i++) {
                 if (newFileName === loadedFiles[i]) {
+                    console.log(`equal to ${loadedFiles[i]}`)
                     if (confirm(`"${loadedFiles[i]} allready exists! Overwrite existing file?"`)) {
                         const dataToSend = { newFile: newFileName, content: UserContent };
                         const result = await fetch("/file", {
@@ -47,20 +57,36 @@
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify(dataToSend)
                         });
-                        console.log(`client POST ${newFileName}`);
+                        console.log(`overwriting "${newFileName}"`);
+                        infoText = `overwritten "${newFileName}"`;
                         const data = await result.json();
+                        loadedFiles = [];
+                        displayInfo(infoText);
                         displayFiles(data);
-                        infoText = `overwritten "${loadedFiles[i]}"`;
-                        displayInfo(infoText);
                     } else {
-                        infoText = `canceled overwrite file "${loadedFiles[i]}"`;
+                        infoText = `canceled overwriting "${newFileName}"`;
                         displayInfo(infoText);
-                    };
-
+                        return;
+                    }
                 };
+                console.log(`not equal to ${loadedFiles[i]}`);
             };
-        });
+            // POST new file
+            const dataToSend = { newFile: newFileName, content: UserContent };
+            const result = await fetch("/file", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(dataToSend)
+            });
+            console.log(`client POST ${newFileName}`);
+            const data = await result.json();
+            loadedFiles = data.files;
+            displayFiles(data);
 
+            infoText = `overwritten "${newFileName}"`;
+            displayInfo(infoText);
+        });
+        // create the table of files
         function displayFiles(data) {
             if (data) {
                 console.log("yeah, data is ok");

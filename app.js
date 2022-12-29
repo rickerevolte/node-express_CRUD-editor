@@ -37,6 +37,7 @@ app.post("/file", (req, res) => {
     fs.writeFile(filename, content, (err) => {
         // console.log("app.js should now handleFileChangeResponse");
         handleFileChangeResponse(err, res);
+        return (res);
     })
 });
 
