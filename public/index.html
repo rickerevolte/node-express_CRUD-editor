@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./css/main.css">
+    <title>CRUD-Editor</title>
+</head>
+
+<body>
+    <h1>CRUD Editor</h1>
+    <table id="tableOfFiles"></table>
+    <div id="textEdit"></div>
+    <button id="save">save</button>
+    <button id="create">create a new file</button>
+    <div id="infoWindow">Info</div>
+
+    <script>
+        const tableOfFiles = document.getElementById("tableOfFiles");
+        const createButton = document.getElementById("create");
+        const textEditArea = document.getElementById("textEdit");
+        const saveButton = document.getElementById("save");
+        const infoWindow = document.getElementById("infoWindow");
+        let infoText = "";
+        let loadedFiles = [];
+
+        async function getFiles() {
+            const result = await fetch("/file");
+            const data = await result.json();
+            console.log(data);
+            loadedFiles = data.files;
+            displayFiles(data)
+        }
+
+        createButton.addEventListener("click", async () => {
+            console.log(loadedFiles.length);
+            let UserContent = prompt("enter some content");
+            let newFileName = prompt("enter a Filename");
+            for (i = 0; i < loadedFiles.length; i++) {
+                if (newFileName === loadedFiles[i]) {
+                    if (confirm(`"${loadedFiles[i]} allready exists! Overwrite existing file?"`)) {
+                        const dataToSend = { newFile: newFileName, content: UserContent };
+                        const result = await fetch("/file", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(dataToSend)
+                        });
+                        console.log(`client POST ${newFileName}`);
+                        const data = await result.json();
+                        displayFiles(data);
+                        infoText = `overwritten "${loadedFiles[i]}"`;
+                        displayInfo(infoText);
+                    } else {
+                        infoText = `canceled overwrite file "${loadedFiles[i]}"`;
+                        displayInfo(infoText);
+                    };
+
+                };
+            };
+        });
+
+        function displayFiles(data) {
+            if (data) {
+                console.log("yeah, data is ok");
+            } else {
+                console.log("data is not ok");
+            };
+            tableOfFiles.innerHTML =
+                `<tr>
+                    <th>name</th>
+                    <th>edit</th>
+                    <th>rename</th>
+                    <th>delete</th>
+                </tr>`;
+
+            for (let i = 0; i < data.files.length; i++) {
+                const file = data.files[i];
+
+                const tr = document.createElement("tr");
+                const tdFile = document.createElement("td");
+                tdFile.innerHTML = file;
+
+                const tdEdit = document.createElement("td");
+                const editButton = document.createElement("button");
+                editButton.innerHTML = "✎";
+                editButton.onclick = async function () {
+                    console.log(`edit ${data.files[i]}`);
+                    const result = await fetch(`/fileContent?fileToEdit=${data.files[i]}`);
+                    const dataContent = await result.json();
+                    let textArea = "";
+                    textArea += `<label>
+                                        <textarea id="text" name="userText" rows="4" cols="50">${dataContent.content}
+                                        </textarea>
+                                    </label>`
+                    textEditArea.innerHTML = textArea;
+                    fileToSave = data.files[i];
+                    infoText = `edit "${fileToSave}"`;
+                    displayInfo(infoText);
+                    saveButton.style.display = "block";
+                    createButton.style.display = "none";
+                }
+
+                const tdRename = document.createElement("td");
+                const renameButton = document.createElement("button");
+                renameButton.innerHTML = "🐼 –> 🐭";
+                renameButton.onclick = function () {
+                    let newFile = prompt("Enter a new filename", file);
+                    if (newFile !== null && newFile !== ``) {
+                        console.log(`rename "${file}" to "${newFile}"`);
+                        renameFile(file, newFile);
+                        infoText = `rename "${file}" to "${newFile}"`;
+                        displayInfo(infoText);
+                    }
+                }
+
+                const tdDelete = document.createElement("td");
+                const deleteButton = document.createElement("button");
+                deleteButton.innerHTML = "✂︎";
+                deleteButton.onclick = function () {
+                    confirmDelete(file);
+                }
+
+                tr.append(tdFile);
+                tdEdit.append(editButton);
+                tr.append(tdEdit);
+                tdRename.append(renameButton);
+                tr.append(tdRename);
+                tdDelete.append(deleteButton);
+                tr.append(tdDelete);
+                tableOfFiles.append(tr);
+            }
+        }
+
+        function displayInfo(info) {
+            infoWindow.innerHTML = info;
+
+        }
+
+        async function renameFile(file, newFile) {
+            const dataToSend = { fileToRename: file, newFileName: newFile };
+            const result = await fetch(`/file`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(dataToSend)
+            });
+            const data = await result.json();
+            console.log(data);
+            displayFiles(data);
+        }
+
+        saveButton.addEventListener("click", async () => {
+
+            const editor = document.getElementById("text");
+            const dataToSend = { file: fileToSave, content: editor.value };
+            const result = await fetch(`/fileContent`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(dataToSend)
+            });
+            const data = await result.json();
+            textEditArea.innerHTML = "";
+            infoText = `saved "${fileToSave}"`;
+            displayInfo(infoText);
+            saveButton.style.display = "none";
+            createButton.style.display = "block";
+        })
+
+        async function confirmDelete(file) {
+            if (confirm(`sure to delete "${file}"`)) {
+                deleteFile(file);
+                infoText = `deleted "${file}"`;
+                displayInfo(infoText);
+            } else {
+                infoText = `canceled delete file "${file}"`;
+                displayInfo(infoText);
+            };
+        }
+
+        async function deleteFile(file) {
+            console.log("delete");
+            const dataToSend = { fileToDelete: file };
+            const result = await fetch(`/file`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(dataToSend)
+            });
+            const data = await result.json();
+            saveButton.style.display = "none";
+            displayFiles(data);
+        }
+
+        getFiles();
+    </script>
+
+    <style>
+        #createButton {
+            display: block;
+        }
+
+        #save {
+            display: none;
+        }
+    </style>
+</body>
+
+</html>
